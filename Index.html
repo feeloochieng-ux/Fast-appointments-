@@ -1,0 +1,51 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Fast-Appoint EmailJS</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>emailjs.init("YOUR_PUBLIC_KEY"); // <-- PASTE PUBLIC KEY HERE</script>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial;background:#f0f4ff}header{background:#0a1931;color:#fff;padding:14px 4%;display:flex;justify-content:space-between}.card{background:#fff;border-radius:14px;padding:18px;box-shadow:0 4px 14px rgba(0,0,0,.08);margin:12px;max-width:500px;margin:20px auto}input,select,button{width:100%;padding:12px;border-radius:10px;border:1px solid #ccc;margin-top:8px;font-size:16px}button{background:#0a1931;color:#fff;font-weight:900;border:none}#appBox{display:none}.slot{padding:8px 12px;border:1px solid #0a1931;border-radius:20px;display:inline-block;margin:5px;cursor:pointer}.slot.active{background:#0a1931;color:#fff}.slot.booked{background:#eee;color:#999;pointer-events:none}.link{color:#0a1931;font-weight:bold;cursor:pointer;text-decoration:underline}</style></head><body>
+<header><div style="font-weight:900;color:#4db5ff">⚡ Fast-Appoint EmailJS</div><button id="logoutBtn" onclick="logout()" style="width:auto;padding:5px 10px;background:#b71c1c;display:none">Logout</button></header>
+
+<div id="loginBox"><div class="card"><h2 id="formTitle">Login</h2><input id="l_name" placeholder="Full Name" style="display:none"><input id="l_email" type="email" placeholder="Email"><input id="l_pass" type="password" placeholder="Password"><button onclick="handleAuth()" id="authBtn">Login</button><div style="display:flex;justify-content:space-between;margin-top:10px"><span class="link" onclick="toggleMode()" id="toggleLink">No account? Register</span><span class="link" onclick="showForgot()">Forgot Password?</span></div><p id="authMsg" style="font-weight:bold;margin-top:8px"></p></div></div>
+
+<div id="forgotBox" style="display:none"><div class="card"><h2>Reset via EmailJS</h2><input id="f_email" placeholder="Your registered email"><button onclick="sendOTP()" id="sendBtn">Send OTP to Email</button><div id="otpArea" style="display:none"><input id="f_otp" placeholder="Enter OTP from email"><input id="f_newpass" type="password" placeholder="New Password"><button onclick="resetPass()" style="background:#25D366">Reset Password</button></div><p id="forgotMsg" style="font-weight:bold"></p><span class="link" onclick="backToLogin()">Back to Login</span></div></div>
+
+<div id="appBox"><div class="card"><h3>Book Appointment - Email Confirm</h3><select id="service"><option>Doctor</option><option>Dentist</option><option>Salon</option><option>DEKUT</option></select><input type="date" id="date"><div id="slots"></div><input id="phone" placeholder="Phone 0119617066"><input id="notes" placeholder="Notes"><button onclick="book()">Confirm & Send Email</button><p id="msg" style="color:green;font-weight:bold"></p></div><div class="card"><div id="list"></div></div></div>
+
+<script>
+let users=JSON.parse(localStorage.getItem('fa_users')||'[]'); if(users.length===0){users.push({name:'Admin',email:'admin@fast.com',pass:'1234',role:'admin'});localStorage.setItem('fa_users',JSON.stringify(users));}
+let bookings=JSON.parse(localStorage.getItem('fastAppoint')||'[]'); let currentUser=JSON.parse(localStorage.getItem('fa_session')||'null'); let mode='login'; let selectedTime=null; let generatedOTP=null; let resetEmail=null; const times=["08:00","09:00","10:00","11:00","14:00","15:00"];
+
+const SERVICE_ID="YOUR_SERVICE_ID"; // PASTE HERE
+const TEMPLATE_ID="YOUR_TEMPLATE_ID"; // PASTE HERE - for OTP
+const BOOK_TEMPLATE_ID="YOUR_TEMPLATE_ID"; // You can use same or create booking template
+
+function toggleMode(){mode=mode==='login'?'register':'login';document.getElementById('formTitle').innerText=mode==='login'?'Login':'Register';document.getElementById('l_name').style.display=mode==='register'?'block':'none';document.getElementById('authBtn').innerText=mode==='login'?'Login':'Register';}
+function showForgot(){document.getElementById('loginBox').style.display='none';document.getElementById('forgotBox').style.display='block';}
+function backToLogin(){document.getElementById('forgotBox').style.display='none';document.getElementById('loginBox').style.display='block';}
+function handleAuth(){const email=document.getElementById('l_email').value.trim().toLowerCase();const pass=document.getElementById('l_pass').value;const name=document.getElementById('l_name').value;if(!email||!pass)return;if(mode==='register'){if(users.find(u=>u.email===email)){alert('Exists');return;}users.push({name:name||email.split('@')[0],email,pass,role:'user'});localStorage.setItem('fa_users',JSON.stringify(users));alert('Registered! Login now');toggleMode();return;}let u=users.find(u=>u.email===email&&u.pass===pass);if(!u){alert('Wrong!');return;}currentUser=u;localStorage.setItem('fa_session',JSON.stringify(u));showApp();}
+function sendOTP(){
+ const email=document.getElementById('f_email').value.trim().toLowerCase();
+ let u=users.find(u=>u.email===email); if(!u){document.getElementById('forgotMsg').innerText='Email not found';return;}
+ resetEmail=email; generatedOTP=Math.floor(1000+Math.random()*9000).toString();
+ document.getElementById('sendBtn').innerText='Sending...';
+ // REAL EMAILJS SEND
+ emailjs.send(SERVICE_ID, TEMPLATE_ID, {email: email, otp_code: generatedOTP, to_email: email}).then(()=>{
+  document.getElementById('forgotMsg').innerText='✅ OTP sent to '+email+' Check inbox!'; document.getElementById('otpArea').style.display='block'; document.getElementById('sendBtn').innerText='Resend OTP';
+ }).catch((e)=>{ document.getElementById('forgotMsg').innerText='❌ EmailJS error: '+JSON.stringify(e)+' - Using demo OTP: '+generatedOTP; document.getElementById('otpArea').style.display='block'; });
+}
+function resetPass(){if(document.getElementById('f_otp').value!==generatedOTP){alert('Wrong OTP');return;}let idx=users.findIndex(u=>u.email===resetEmail);users[idx].pass=document.getElementById('f_newpass').value;localStorage.setItem('fa_users',JSON.stringify(users));alert('Password reset! Login now');backToLogin();}
+function showApp(){document.getElementById('loginBox').style.display='none';document.getElementById('forgotBox').style.display='none';document.getElementById('appBox').style.display='block';document.getElementById('logoutBtn').style.display='block';document.getElementById('date').min=new Date().toISOString().split('T')[0];document.getElementById('date').value=new Date().toISOString().split('T')[0];genSlots();render();}
+function logout(){localStorage.removeItem('fa_session');location.reload();}
+function genSlots(){const d=document.getElementById('date').value;const booked=bookings.filter(b=>b.date===d).map(b=>b.time);let h='';times.forEach(t=>{let c=booked.includes(t)?'slot booked':'slot';h+=`<div class="${c}" onclick="pickTime('${t}',this)">${t}</div>`});document.getElementById('slots').innerHTML=h; document.getElementById('date').addEventListener('change',genSlots);}
+function pickTime(t,el){document.querySelectorAll('.slot').forEach(s=>s.classList.remove('active'));el.classList.add('active');selectedTime=t;}
+function book(){
+ const s=document.getElementById('service').value; const d=document.getElementById('date').value;
+ if(!selectedTime){alert('Pick time');return;}
+ bookings.unshift({id:Date.now(),service:s,date:d,time:selectedTime,name:currentUser.name,email:currentUser.email});
+ localStorage.setItem('fastAppoint',JSON.stringify(bookings));
+ // Send booking email
+ emailjs.send(SERVICE_ID, TEMPLATE_ID, {email: currentUser.email, to_email: currentUser.email, otp_code: `Booking Confirmed: ${s} on ${d} at ${selectedTime}`, message: `Hi ${currentUser.name} your booking confirmed`}).then(()=>{document.getElementById('msg').innerText='✅ Booked + Email sent!';}).catch(()=>{document.getElementById('msg').innerText='✅ Booked! (EmailJS keys not set yet)';});
+ render(); genSlots();
+}
+function render(){let html='';bookings.filter(b=>currentUser.role==='admin'||b.email===currentUser.email).forEach(b=>{html+=`<div style="border-left:4px solid #0a1931;margin:8px 0;padding-left:8px">${b.service} ${b.date} ${b.time} - ${b.name}</div>`});document.getElementById('list').innerHTML=html;}
+if(currentUser)showApp();
+</script></body></html>
